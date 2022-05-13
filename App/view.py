@@ -37,7 +37,13 @@ operación solicitada
 def printMenu():
     print("Bienvenido")
     print("1- Cargar información en el catálogo")
-    print("2- ")
+    print("2- Comprar bicicletas para las estaciones con más viajes de origen")
+    print("3- Planear paseos turísticos por la ciudad")
+    print("4- Reconocer los componentes fuertemente conectados")
+    print("5- Planear una ruta rápida para el usuario")
+    print("6- Reportar rutas en un rango de fechas para los usuarios anuales")
+    print("7- Planear el mantenimiento preventivo de bicicletas")
+    print("8- La estación más frecuentada por los visitantes")
 
 catalog = None
 
@@ -52,7 +58,16 @@ while True:
 
     elif int(inputs[0]) == 2:
         pass
-
+    elif int(inputs[0]) == 3:
+        nombre = input("Ingrese el nombre de la estación de inicio: ")
+        disponibilidad = input("Ingrese la disponibilidad para el paseo: ")
+        num_min_est = input("Ingrese el numero minimo de estaciones de parada para la ruta")
+        max_num = input("Ingrese el maximo numero de rutas de respuesta")
+    elif int(inputs[0]) == 4:
+        pass
+    elif int(inputs[0]) == 5:
+        nombre_origen = input("Ingrese el nombre de la estación origen: ")
+        nombre_destino = input("ingrese el nombre de la estación destino: ")
     else:
         sys.exit(0)
 sys.exit(0)
