@@ -45,6 +45,17 @@ def printMenu():
     print("7- Planear el mantenimiento preventivo de bicicletas")
     print("8- La estación más frecuentada por los visitantes")
 
+def print_info_carga():
+    print('Total de viajes: ')
+    print('Total de vertices del grafo: ')
+    print('Total de arcos del grafo: ')
+    print('Primeros 5 y ultimos 5 vertices cargados: ')
+    for vertice in lt.iterator(lista_vertices):
+        print(vertice['id'])
+        print(vertice['name'])
+        print(vertice['n_viajes'])
+
+
 catalog = None
 
 """
@@ -68,6 +79,11 @@ while True:
     elif int(inputs[0]) == 5:
         nombre_origen = input("Ingrese el nombre de la estación origen: ")
         nombre_destino = input("ingrese el nombre de la estación destino: ")
+   
+   
+   
+   
+   
     else:
         sys.exit(0)
 sys.exit(0)
