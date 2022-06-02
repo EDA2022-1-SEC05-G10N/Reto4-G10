@@ -28,11 +28,56 @@ import csv
 """
 El controlador se encarga de mediar entre la vista y el modelo.
 """
+archivo_viajes = "Bikeshare // Bikeshare-ridership-2021-utf8-small.csv"
 
 # Inicialización del Catálogo de libros
+def init():
+    analyzer = model.newAnalyzer()
+    return analyzer
 
 # Funciones para la carga de datos
+def loadData(analyzer,archivo):
+    archivo = cf.data_dir + archivo_viajes
+    input_file = csv.DictReader(open(archivo, encoding='utf-8'))
+    num_entry = 0
+    for viaje in input_file: 
+        if len(viaje["Start Station Name"]) == 0 or len(viaje["End Station Name"]) == 0 or len(viaje["Bike Id"]):
+            num_entry +=1 
+            continue
+        else: 
+            model.agregarViaje(analyzer,viaje)
+    return analyzer,num_entry
 
+def totalConexiones(analyzer):
+    return model.totalConexiones(analyzer)
+
+def totalParadas(analyzer): 
+    return model.totalParadas(analyzer)
+
+def viajesTotales(analyzer):
+    return model.viajesTotales(analyzer)
+
+def posiciones(analyzer):
+    return model.posiciones(analyzer)
+
+def getInfo1(analyzer):
+    return model.getInfo1(analyzer)
+
+def getInfo2(analyzer,estacion_inicial,disponibilidad,minimo_paradas,estaciones):
+    return model.getInfo2(analyzer,estacion_inicial,disponibilidad,minimo_paradas,estaciones)
+
+def getInfo3(analyzer,nombre_origen, nombre_final):
+    return model.getInfo3(analyzer,nombre_origen, nombre_final)
+
+def getInfo4(analyzer,fecha_inicial, fecha_final):
+    return model.getInfo4(analyzer,fecha_inicial,fecha_final)
+
+def getInfo5(analyzer,bicicleta, fecha_inicial, fecha_final):
+    return model.getInfo5(analyzer,bicicleta, fecha_inicial,fecha_final)
+
+def getInfo6(analyzer,nombre_estacion):
+    return model.getInfo6(analyzer,nombre_estacion)
+    
 # Funciones de ordenamiento
 
 # Funciones de consulta sobre el catálogo
