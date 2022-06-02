@@ -34,6 +34,7 @@ from DISClib.Algorithms.Graphs import dfs as dfs
 from DISClib.Algorithms.Graphs import bfs as bfs 
 from DISClib.ADT import map as mp
 from DISClib.ADT import orderedmap as om
+from DISClib.ADT import stack as st
 from DISClib.DataStructures import mapentry as me
 from DISClib.Algorithms.Sorting import shellsort as sa
 assert cf
@@ -75,7 +76,10 @@ def newAnalyzer():
                                        maptype = "CHAINING",
                                         comparefunction = comparar_id_estaciones)
         analyzer["fechas_iniciales"] = om.newMap(omaptype = "RBT",
-                                                comparefunction = comparar_fechas)        
+                                                comparefunction = comparar_fechas)
+        analyzer["paradas"] = mp.newMap(numelements = 61031,
+                                                    maytype = "CHAINING",
+                                                    comparefunction = None) 
 
         return analyzer
 
@@ -150,11 +154,54 @@ def getInfo1(analyzer):
     return analyzer 
 
 def getInfo2(analyzer,estacion_inicial,estacion_final):
+    analyzer["paths"] = djk.Dijkstra(analyzer["conexiones"],7543.0)
+    caminos_existentes = analyzer["paths"]
+
+    lst_paradas = analyzer["lista_de_conexiones"]
+    route_index = mp.newMap(numelements = 14000,
+                            maptype="PROBING")
+    for parada in lt.iterator(lst_paradas):
+        existe_cam = hasPath(caminos_existentes,parada["stop_id"])
+        if existe_cam:
+            camino = minimunCostPath(caminos_existentes,parada["stop_id"])
+            num_estaciones = st.size(camino)
+            if num_estaciones != 0:
+                costo = djk.distTo(caminos_existentes,parada["stop_id"])
+                orden = lt.newList(datastructure="ARRAY_LIST")
+                for camino_parada in lt.iterator(camino):
+                    vertice1 = camino_parada["vertexA"]
+                    vertice2 = camino_parada["vertexB"]
+                    nombre1 = mp.get(analyzer["paradas"],vertice1)
+                    nomb1 = me.getValue(nombre1)["station_name"]
+                    nombre2 = mp.get(analyzer["paradas"],vertice2)
+                    nomb2 = me.getValue(nombre2)["station_name"]
+                    informacion_final = (vertice1,nomb1),(vertice2,nomb2)
+                    lt.addLast(orden,informacion_final)
+                entry = {
+                    "orden":orden,
+                    "tiempo": costo,
+                    "num_estaciones": num_estaciones
+                }
+                mp.put(route_index,stop["stop_id"],entry)
+    key_set = lista_llaves(route_index)
+    caminos_finales = lt.newList(datastructure="ARRAY_LIST")
+    for llave in key_set:
+        info1 = mp.get(route_index,llave)
+        info1_f = me.getValue(info1)
+        if info1_f["num_estacion"] >= minstops: 
+            
+
+
     return analyzer
 
 def getInfo3(analyzer)
 
 
+def totalParadas(analyzer):
+    return gr.numVertices(analyzer["conexiones"])
+
+def totalConexiones(analyzer):
+    return gr.numEdges(analyzer["conexiones"])
 
 # Funciones de consulta
 def crear_nombre_estacion(estacion):
