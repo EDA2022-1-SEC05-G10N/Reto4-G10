@@ -21,10 +21,18 @@
  """
 
 import config as cf
-import sys
-import controller
 from DISClib.ADT import list as lt
+from DISClib.ADT import graph as gr 
+from DISClib.Algorithms.Graphs import scc 
+from DISClib.Algorithms.Graphs import dijsktra as djk
+from DISClib.Algorithms.Graphs import dfs as dfs
+from DISClib.Algorithms.Graphs import bfs as bfs 
+from DISClib.ADT import map as mp
+from DISClib.ADT import orderedmap as om
+from DISClib.DataStructures import mapentry as me
+from DISClib.Algorithms.Sorting import shellsort as sa
 assert cf
+from datetime import date, datetime
 
 
 """
@@ -33,7 +41,7 @@ Presenta el menu de opciones y por cada seleccion
 se hace la solicitud al controlador para ejecutar la
 operación solicitada
 """
-archivo_viajes = "Bikeshare // Bikeshare-ridership-2021-utf8-small.csv"
+|archivo_viajes = "Bikeshare // Bikeshare-ridership-2021-utf8-small.csv"
 def printMenu():
     print("Bienvenido")
     print("1- Inicializar analizador")
@@ -46,18 +54,41 @@ def printMenu():
     print("8- Planear el mantenimiento preventivo de bicicletas")
     print("9- La estación más frecuentada por los visitantes")
 
-def print_info_carga():
+def print_info_carga(analyzer):
+    info = analyzer["conexiones"]
+    lst_estaciones = gr.vertices(info)
+    ultima3 = len(lst_estaciones)-3
+    ultima2 = len(lst_estaciones)-2
+    ultima = len(lst_estaciones) -1
+    elemento1 = lt.getElement(lst_estaciones,1)
+    elemento2 = lt.getElement(lst_estaciones,2)
+    elemento3 = lt.getElement(lst_estaciones,3)
+    elemento4 = lt.getElement(lst_estaciones,ultima3)
+    elemento5 = lt.getElement(lst_estaciones,ultima2)
+    elemento6 = lt.getElement(lst_estaciones,ultima)
+    lista0 = [elemento1, gr.indegree(info,elemento1), gr.outdegree(info,elemento1)]
+    lista1= [elemento2,gr.indegree(info,elemento2), gr.outdegree(info,elemento2)
+]   lista2 = [elemento3,gr.indegree(info,elemento3), gr.outdegree(info,elemento3)]
+    lista3= [elemento4,gr.indegree(info,elemento4), gr.outdegree(info,elemento4)]
+    lista4= [elemento4,gr.indegree(info,elemento4), gr.outdegree(info,elemento4)]
+    lista5= [elemento4,gr.indegree(info,elemento4), gr.outdegree(info,elemento4)]
+    lista_final = [lista1,lista2,lista3,lista4,]
+    print(lista_final)
+
+
     print('Total de viajes: ')
     print('Total de vertices del grafo: ')
     print('Total de arcos del grafo: ')
     print('Primeros 5 y ultimos 5 vertices cargados: ')
-    for vertice in lt.iterator(lista_vertices):
-        print(vertice['id'])
-        print(vertice['name'])
-        print(vertice['n_viajes'])
+    
+def carga(numentry,num_edges,num_vertices,num_viajes,primeras_y_ultimas):
+    print("Numero de vertices: " + str(num_vertices))
+    print("Numero de arcos" + str(num_edges))
+    print("Numero de total de viajes "+ str(num_viajes))
+    print("Numero de vacios " + str(numentry))
 
+    print("----------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
 
-catalog = None
 
 """
 Menu principal

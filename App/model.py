@@ -107,17 +107,45 @@ def agregarConexion(analyzer,inicio,fin,tiempo_promedio):
     return analyzer
 
 
+# Funciones para creacion de datos
+#cargar elementos req 1 
+def cargar_estaciones_inicio(analyzer, bicicleta):
+    estaciones = analyzer["estaciones_iniciales"]
+    id_estacion = bicicleta["Start Station Id"]
+    nombre = crear_nombre_estacion(bicicleta["Start Station Name"])
+    llave = id_estacion + "-" + nombre
+    tipo_usuario = bicicleta["User Type"]
+    if not mp.contains(estaciones,llave):
+        diccionario_estaciones = {"id_estacion":id_estacion, 
+                                "nombre":nombre,
+                                "total_viajes":0,
+                                "Casual Member":0,
+                                "Annual Member": 0}
+    else:
+        diccionario_estaciones = mp.get(estaciones,llave)
+        diccionario_estaciones = me.getValue(diccionario_estaciones)
+    diccionario_estaciones["total_viajes"] +=1
+    diccionario_estaciones[tipo_usuario]
+    mp.put(estaciones,llave, diccionario_estaciones)
+
+    return analyzer
+
+        
+#FUNCIONES REQUERIMIENTOS 
+
+#REQUERIMIENTO 1 
 def más_viajes(analyzer):
-    est = mp.valueSet(analyzer["estaciones_inicio"])
+    est = mp.valueSet(analyzer["estaciones_iniciales"])
     lst = lt.newList("ARRAY_LIST")
     for estacion in lt.iterator(est):
         llave = estacion["id_estacion"] + "-" + estacion["nombre"]
-            out = gr.outDegree(analyzer["conexiones"], llave)
+        try:
+            outdegree = gr.outdegree(analyzer["conexiones"],llave)
+        except:
+            outdegree = 0 
+        estacion["Out Degree"] = 0 
+        lt.addLast(lst,estacion)
 
-    
-
-
-# Funciones para creacion de datos
 def getInfo1(analyzer):
     return analyzer 
 
@@ -129,6 +157,12 @@ def getInfo3(analyzer)
 
 
 # Funciones de consulta
+def crear_nombre_estacion(estacion):
+    if estacion == " ":
+        return "desconocido"
+    else:
+        return estacion 
+
 def connectedComponents(analyzer):
     analyzer["components"] = scc.KosajaruSCC(analyzer["connections"])
     return scc.connectedComponents(analyzer["components"]) 
