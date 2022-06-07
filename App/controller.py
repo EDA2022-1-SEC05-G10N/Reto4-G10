@@ -28,56 +28,80 @@ import csv
 """
 El controlador se encarga de mediar entre la vista y el modelo.
 """
-archivo_viajes = "Bikeshare // Bikeshare-ridership-2021-utf8-small.csv"
 
 # Inicialización del Catálogo de libros
 def init():
     analyzer = model.newAnalyzer()
     return analyzer
-
 # Funciones para la carga de datos
-def loadData(analyzer,archivo):
-    archivo = cf.data_dir + archivo_viajes
-    input_file = csv.DictReader(open(archivo, encoding='utf-8'))
-    num_entry = 0
-    for viaje in input_file: 
-        if len(viaje["Start Station Name"]) == 0 or len(viaje["End Station Name"]) == 0 or len(viaje["Bike Id"]):
-            num_entry +=1 
-            continue
-        else: 
-            model.agregarViaje(analyzer,viaje)
-    return analyzer,num_entry
 
-def totalConexiones(analyzer):
-    return model.totalConexiones(analyzer)
-
-def totalParadas(analyzer): 
-    return model.totalParadas(analyzer)
-
-def viajesTotales(analyzer):
-    return model.viajesTotales(analyzer)
-
-def posiciones(analyzer):
-    return model.posiciones(analyzer)
-
-def getInfo1(analyzer):
-    return model.getInfo1(analyzer)
-
-def getInfo2(analyzer,estacion_inicial,disponibilidad,minimo_paradas,estaciones):
-    return model.getInfo2(analyzer,estacion_inicial,disponibilidad,minimo_paradas,estaciones)
-
-def getInfo3(analyzer,nombre_origen, nombre_final):
-    return model.getInfo3(analyzer,nombre_origen, nombre_final)
-
-def getInfo4(analyzer,fecha_inicial, fecha_final):
-    return model.getInfo4(analyzer,fecha_inicial,fecha_final)
-
-def getInfo5(analyzer,bicicleta, fecha_inicial, fecha_final):
-    return model.getInfo5(analyzer,bicicleta, fecha_inicial,fecha_final)
-
-def getInfo6(analyzer,nombre_estacion):
-    return model.getInfo6(analyzer,nombre_estacion)
+def loadServices(analyzer, servicesfile):
+    servicesfile = cf.data_dir + servicesfile
+    fh = open(servicesfile, encoding="utf-8")
+    input_file = csv.DictReader(fh, delimiter=",")
     
+    for trip in input_file:
+        if (trip['Start Station Id'] != None and trip['Start Station Id'] != '' and
+            trip['End Station Id'] != None and trip['End Station Id'] != '' and 
+            trip['Trip  Duration'] != None and trip['Trip  Duration'] != '' and
+            trip['Bike Id'] != None and trip['Bike Id'] != '' and
+            trip['Start Station Id'] != trip['End Station Id'] and
+            float(trip['Trip  Duration']) > 0):
+            model.addTrip(analyzer, trip)
+            model.addAllStations(analyzer, trip)
+        analyzer['total_viajes']+=1
+    
+    return analyzer 
+
+def optionThree(analyzer):
+    datos = model.optionThree(analyzer)          
+    return datos
+
+def optionFive(analyzer):
+    componentes = model.optionFive(analyzer)
+    return componentes
+    
+def optionSix(analyzer, origen, destino):
+    return model.optionSix(analyzer, origen, destino)
+
+def optionSeven(analyzer, fecha_inicial, fecha_final):
+    return model.optionSeven(analyzer, fecha_inicial, fecha_final)
+
+def optionEight(analyzer, bike_id):
+    return model.optionEight(analyzer, bike_id)
+
+def optionNine(analyzer, nombre_estacion, fecha_inicial, fecha_final):
+    return model.optionNine(analyzer, nombre_estacion, fecha_inicial, fecha_final)
+
+
+
 # Funciones de ordenamiento
 
 # Funciones de consulta sobre el catálogo
+def totalStations(analyzer):
+    "Total de estaciones de bicicleta"
+    return model.totalStations(analyzer)
+
+def totalConnections(analyzer):
+    """
+    Total de enlaces entre las paradas
+    """
+    return model.totalConnections(analyzer)
+
+def getVertices(analyzer):
+    """
+    Retorna lista con los vertices
+    """
+    return model.getVertices(analyzer)
+
+def getTotalViajes(analyzer):
+    return analyzer['total_viajes']
+
+def getStationsMap(analyzer):
+    return analyzer['stations']
+
+def getGraph(analyzer):
+    return analyzer['connections']
+
+def connectedComponents(analyzer):
+    return model.connectedComponents(analyzer)

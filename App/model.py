@@ -1,4 +1,4 @@
-﻿0"""
+﻿"""
  * Copyright 2020, Departamento de sistemas y Computación,
  * Universidad de Los Andes
  *
@@ -25,20 +25,26 @@
  """
 
 
+'''
 import config as cf
 from DISClib.ADT import list as lt
-from DISClib.ADT import graph as gr 
-from DISClib.Algorithms.Graphs import scc 
-from DISClib.Algorithms.Graphs import dijsktra as djk
-from DISClib.Algorithms.Graphs import dfs as dfs
-from DISClib.Algorithms.Graphs import bfs as bfs 
 from DISClib.ADT import map as mp
-from DISClib.ADT import orderedmap as om
-from DISClib.ADT import stack as st
 from DISClib.DataStructures import mapentry as me
 from DISClib.Algorithms.Sorting import shellsort as sa
-assert cf
-from datetime import date, datetime
+assert cf'''
+
+import config
+from DISClib.ADT import graph as gr
+from DISClib.ADT import map as m
+from DISClib.ADT import list as lt
+from DISClib.Algorithms.Graphs import scc
+from DISClib.Algorithms.Graphs import dijsktra as djk
+from DISClib.Algorithms.Graphs import dfs as dfs 
+from DISClib.Algorithms.Graphs import bfs as bfs 
+from DISClib.Utils import error as error
+from DISClib.Algorithms.Sorting import mergesort as mergesort
+from datetime import datetime
+assert config
 
 """
 Se define la estructura de un catálogo de videos. El catálogo tendrá dos listas, una para los videos, otra para las categorias de
@@ -47,260 +53,368 @@ los mismos.
 
 # Construccion de modelos
 def newAnalyzer():
+    try:
         analyzer = {
-            "estaciones": None, 
-            "connections": None, 
-            "components": None, 
-            "paths": None, 
-            "search": None,
+            'stations': None,
+            'connections': None,
+            'components': None,
+            'paths': None,
+            'search': None,
         }
 
-        analyzer["estaciones"] = mp.newMap(numelements= 61031,
-                                            maptype = "CHAINING",
-                                            comparefunction = None)
-        analyzer["bikes"] = mp.newMap(numelements = 61031,
-                                        maptype = "CHAINING",
-                                        comparefunction = None)
-        analyzer["id_estaciones"] = mp.newMap(numelements = 61031,
-                                            maptype = "CHAINING",
-                                            comparefunction = comparar_id_estaciones)
-        analyzer["conexiones"] = gr.newGraph(datastructure = "ADJ_LIST",
-                                            directed = True
-                                            size = 14000,
-                                            compare_function = comparar_id_estaciones)
-        analyzer["lista_de_conexiones"] = lt.newList("ARRAY_LIST")
-        analyzer["estaciones_iniciales"] = mp.newMap(numelements = 61031,
-                                                    maytype = "CHAINING",
-                                                    comparefunction = None)
-        analyzer["tiempo"] = mp.newMap(numelements = 61031,
-                                       maptype = "CHAINING",
-                                        comparefunction = comparar_id_estaciones)
-        analyzer["fechas_iniciales"] = om.newMap(omaptype = "RBT",
-                                                comparefunction = comparar_fechas)
-        analyzer["paradas"] = mp.newMap(numelements = 61031,
-                                                    maytype = "CHAINING",
-                                                    comparefunction = None) 
+        analyzer['total_viajes'] = 0
+
+        analyzer['lista viajes'] = lt.newList('ARRAY_LIST')
+
+        analyzer['stations'] = m.newMap(numelements=14000,
+                                     maptype='PROBING',
+                                     comparefunction=compareStopIds)
+        
+        analyzer['connections'] = gr.newGraph(datastructure='ADJ_LIST',
+                                              directed=True,
+                                              size=14000,
+                                              comparefunction=compareStopIds)
+        analyzer['tiempos'] = m.newMap(maptype='PROBING')
 
         return analyzer
+    except Exception as exp:
+        error.reraise(exp, 'model:newAnalyzer')
 
 # Funciones para agregar informacion al catalogo
-def agregarConexionesEstaciones(analyzer,viaje):
-    inicio = str(viaje["Start Station Id"])
-    fin = str(int(float(viaje["End Station Id"])))
-    agregarParada(analyzer,inicio)
-    agregarParada(analyzer,fin)
-    edge = gr.getEdge(analyzer["conexiones"],inicio,fin)
-    if edge is None: 
-        recorrido = inicio + fin 
-        lst_rec = mp.get(analyzer["time"],recorrido)["value"]
-        tiempo_rec = sum(lst_rec)
-        viajes = len(lst_rec)
-        tiempo_promedio = tiempo_rec / viajes
-        agregarConexion(analyzer,inicio,fin,tiempo_promedio)
+
+def addTrip(analyzer, trip):
+    datos_viaje = [0,0,0,0,0,0,0]
+    datos_viaje[0] = trip['Trip Id']
+    datos_viaje[1] = trip['Trip  Duration']
+    datos_viaje[2] = datetime.strptime(trip['Start Time'][0:10], "%m/%d/%Y")
+    datos_viaje[3] = trip['Bike Id']
+    datos_viaje[4] = trip['User Type']
+    datos_viaje[5] = trip['Start Station Name']
+    datos_viaje[6] = trip['End Station Name']
+
+    lt.addLast(analyzer['lista viajes'], datos_viaje)
+
+
+
+
+def addAllStations(analyzer, trip):
+    try:
+        origin = trip['Start Station Name']
+        origin_id = trip['Start Station Id']
+        destination = trip['End Station Name']
+        destination_id = trip['End Station Id']
+
+        #agregar vertices LISTO
+        addStation(analyzer, origin, origin_id, 'out')
+        addStation(analyzer, destination, destination_id, 'in')
+
+        #sacar el tiempo LISTO
+        time = float(trip['Trip  Duration'])
+
+        #armar string trayecto
+        trayecto = origin+'/'+destination
+        #cada vez que un usuario hace este trayecto, se actualizar el promedio de tiempos
+        actualizar_tiempos(analyzer, trayecto, time)
+        tiempo_promedio_total = m.get(analyzer['tiempos'], trayecto)['value'][0]
+
+        edge = gr.getEdge(analyzer['connections'], origin, destination)
+        if edge is None:
+            gr.addEdge(analyzer['connections'], origin, destination, tiempo_promedio_total)
+        else:
+            edge['weight'] = tiempo_promedio_total
+
+        return analyzer
+    except Exception as exp:
+        error.reraise(exp, 'model:addAllStations')
+
+def addStation(analyzer, station_name, station_id, in_out):
+    if not gr.containsVertex(analyzer['connections'], station_name):
+        gr.insertVertex(analyzer['connections'], station_name)
+
+        submapa=m.newMap(maptype='PROBING')
+        m.put(submapa, 'station name', station_name)
+        m.put(submapa, 'station id', station_id)
+        out_trips = 0
+        in_trips = 0
+        m.put(submapa, 'out trips', out_trips)
+        m.put(submapa, 'in trips', in_trips)
+
+        m.put(analyzer['stations'], station_name, submapa)
+    
+
+
+    submapa = m.get(analyzer['stations'], station_name)['value']
+    out_trips = m.get(submapa, 'out trips')['value']    
+    in_trips = m.get(submapa, 'in trips')['value']
+    if in_out == 'out':
+        out_trips+=1
+    if in_out == 'in':
+        in_trips+=1
+    m.put(submapa, 'out trips', out_trips)
+    m.put(submapa, 'in trips', in_trips)
+
+    m.put(analyzer['stations'], station_name, submapa)
     return analyzer
 
-def agregarParada(analyzer,estacion_id):
-    if not gr.containsVertex(analyzer["conexiones"],estacion_id):
-            gr.insertVertex(analyzer["conexiones"],estacion_id)
+def actualizar_tiempos(analyzer, trayecto, time):
+    mapa=analyzer['tiempos']
+    entry = m.get(mapa, trayecto)
+    if entry is None:
+        tupla = [time, 1]
+        m.put(mapa, trayecto, tupla)
+                
+    else:        
+        nuevo_promedio = (((entry['value'][0])*(entry['value'][1]))+time)/(entry['value'][1]+1)
+        nueva_tupla = [nuevo_promedio, entry['value'][1]+1]
+        m.put(mapa, trayecto, nueva_tupla)
+
     return analyzer
 
-def agregarConexion(analyzer,inicio,fin,tiempo_promedio):
-    edge = gr.getEdge(analyzer["conexiones"],inicio,fin)
-    if edge is None: 
-        gr.addEgde(analyzer["conexiones"],inicio,fin,tiempo_promedio)
-    return analyzer
 
+
+def optionThree(analyzer):
+    vertices = m.valueSet(analyzer['stations'])
+    lista_mejor = lt.newList('ARRAY_LIST')
+    for i in lt.iterator(vertices):
+        tupla = [0,0,0]
+        tupla[0] = m.get(i, 'station id')['value']
+        tupla[1] = m.get(i, 'station name')['value']
+        tupla[2] = m.get(i, 'out trips')['value']
+        lt.addLast(lista_mejor, tupla)
+
+    lista_mejor2 = mergesort.sort(lista_mejor, cmpVerticesByOutTrips)
+    
+    return lista_mejor2
+    
+
+def optionFive(analyzer):
+    componentes = scc.KosarajuSCC(analyzer['connections'])
+    return componentes
+
+
+
+def optionSix(analyzer, origen, destino):
+    existe1 = gr.containsVertex(analyzer['connections'], origen)
+    existe2 = gr.containsVertex(analyzer['connections'], destino)
+
+    if existe1 and existe2:    
+        analyzer['paths'] = djk.Dijkstra(analyzer['connections'], origen)
+        
+        if djk.hasPathTo(analyzer['paths'], destino):
+            path = djk.pathTo(analyzer['paths'], destino)
+            return path
+        else:
+            return 'no hay ruta entre los vertices'
+
+
+def optionSeven(analyzer, fecha_inicial, fecha_final):
+    lista_viajes = analyzer['lista viajes']
+    lista_ordenada = mergesort.sort(lista_viajes, cmpViajesPorFecha)
+
+    fecha_inicial = datetime.strptime(fecha_inicial, "%m/%d/%Y")
+    fecha_final = datetime.strptime(fecha_final, "%m/%d/%Y")
+
+    mayor = busqueda_lineal(lista_ordenada, fecha_final, 'max')
+    menor = busqueda_lineal(lista_ordenada, fecha_inicial, 'min')
+
+    #print('menor'+str(menor)+str(lt.getElement(lista_ordenada, menor)[2]))
+    #print('mayor'+str(mayor)+str(lt.getElement(lista_ordenada, mayor)[2]))
+    
+    trips_en_rango = lt.subList(lista_ordenada, menor, (mayor-menor))    
+
+    mapa_estaciones_origen = m.newMap(maptype='PROBING')
+    mapa_estaciones_destino = m.newMap(maptype='PROBING')
+    total_tiempo = 0
+    
+    for trip in lt.iterator(trips_en_rango):
+        total_tiempo += float(trip[1])
+
+        if not m.contains(mapa_estaciones_origen, trip[5]):
+            m.put(mapa_estaciones_origen, trip[5], 1)
+        else:
+            valor = m.get(mapa_estaciones_origen, trip[5])['value']
+            m.put(mapa_estaciones_origen, trip[5], valor+1)
+
+        if not m.contains(mapa_estaciones_destino, trip[6]):
+            m.put(mapa_estaciones_destino, trip[6], 1)
+        else:
+            valor = m.get(mapa_estaciones_destino, trip[6])['value']
+            m.put(mapa_estaciones_destino, trip[6], valor+1)
+
+
+    estaciones_origen = m.keySet(mapa_estaciones_origen)
+    
+    maximo1 = 0
+    maxima_estacion1 = lt.newList('ARRAY_LIST')
+    for estacion in lt.iterator(estaciones_origen):
+        if m.get(mapa_estaciones_origen, estacion)['value'] > maximo1:
+            maximo1 = m.get(mapa_estaciones_origen, estacion)['value']
+            lt.addLast(maxima_estacion1, estacion)
+
+    maximo2 = 0
+    maxima_estacion2 = lt.newList('ARRAY_LIST')
+    estaciones_destino = m.keySet(mapa_estaciones_destino)
+    for estacion in lt.iterator(estaciones_destino):
+        if m.get(mapa_estaciones_destino, estacion)['value'] > maximo2:
+            maximo2 = m.get(mapa_estaciones_destino, estacion)['value']
+            lt.addLast(maxima_estacion2, estacion)
+
+
+    print('     Total viajes entre fechas: '+str(lt.size(trips_en_rango)))
+    print('     Total de tiempo invertido en los viajes: '+str(total_tiempo))
+    print('     Estaciones origen mas frecuentadas: '+str(maximo1)+' veces')
+    for estacion in lt.iterator(maxima_estacion1):
+        print("          "+estacion)
+    print('     Estaciones destino mas frecuentadas: '+str(maximo2)+' veces')
+    for estacion in lt.iterator(maxima_estacion2):
+        print("          "+estacion)
+
+def optionEight(analyzer, bike_id):
+
+
+    contador_viajes_bici = 0
+    contador_horas_bici = 0
+
+    lista_viajes = analyzer['lista viajes']
+    for trip in lt.iterator(lista_viajes):
+        if trip[3] == bike_id:
+            contador_viajes_bici += 1
+            contador_horas_bici += float(trip[1])
+
+    print('Total de viajes de la bici: '+str(contador_viajes_bici))
+    print('Total de horas en la bici: '+str(contador_horas_bici))
+
+
+def optionNine(analyzer, nombre_estacion, fecha_inicial, fecha_final):
+    lista_viajes = analyzer['lista viajes']
+    lista_ordenada = mergesort.sort(lista_viajes, cmpViajesPorFecha)
+
+    fecha_inicial = datetime.strptime(fecha_inicial, "%m/%d/%Y")
+    fecha_final = datetime.strptime(fecha_final, "%m/%d/%Y")
+
+    mayor = busqueda_lineal(lista_ordenada, fecha_final, 'max')
+    menor = busqueda_lineal(lista_ordenada, fecha_inicial, 'min')
+    
+    trips_en_rango = lt.subList(lista_ordenada, menor, (mayor-menor))    
+
+    trips_salieron = lt.newList('ARRAY_LIST')
+    trips_llegaron = lt.newList('ARRAY_LIST')
+    for trip in lt.iterator(trips_en_rango):
+        if trip[5] == nombre_estacion:
+            lt.addLast(trips_salieron, trip)
+        if trip[6] == nombre_estacion:
+            lt.addLast(trips_llegaron, trip)
+
+
+    print('     Total de viajes que iniciaron en esta estacion: '+str(lt.size(trips_salieron)))
+    print('     Total de viajes que terminaron en esta estacion: '+str(lt.size(trips_llegaron)))
+    
+    lissta = mergesort.sort(trips_salieron, cmpTripsByDuration)
+    maxtrip = lt.lastElement(lissta)
+    print('     Viaje de mayor duracion: ')
+    print('          '+'ID: '+str(maxtrip[0]))
+    print('          '+'Estacion salida: '+str(maxtrip[5]))
+    print('          '+'Estacion llegada: '+str(maxtrip[6]))
+    print('          '+'Duracion: '+str(maxtrip[1]))        
+    
+
+    lista_aux = trips_salieron
+
+    estaciones_de_llegada = m.newMap(maptype='PROBING')
+    
+    for trip in lt.iterator(lista_aux):
+        if m.contains(estaciones_de_llegada, trip[6]):
+            n_actualizado = m.get(estaciones_de_llegada, trip[6])['value']+1
+            m.put(estaciones_de_llegada, trip[6], n_actualizado)    
+        else:
+            m.put(estaciones_de_llegada, trip[6], 1)
+
+
+    keys_estaciones = m.keySet(estaciones_de_llegada)
+    
+    maximoN = 0
+    for key in lt.iterator(keys_estaciones):
+        if m.get(estaciones_de_llegada, key)['value'] > maximoN:
+            maximoN = m.get(estaciones_de_llegada, key)['value']
+        #print('     Name: '+key+' frecuencia: '+str(m.get(estaciones_de_llegada, key)['value']))
+
+
+    print('     Estaciones donde terminaron la mayoria de viajes que iniciaron en esta estacion:')
+    for key in lt.iterator(keys_estaciones):
+        if m.get(estaciones_de_llegada, key)['value'] == maximoN:
+            print('          Nombre: '+key+' Frecuencia: '+str(maximoN))
 
 # Funciones para creacion de datos
-#cargar elementos req 1 
-def cargar_estaciones_inicio(analyzer, bicicleta):
-    estaciones = analyzer["estaciones_iniciales"]
-    id_estacion = bicicleta["Start Station Id"]
-    nombre = crear_nombre_estacion(bicicleta["Start Station Name"])
-    llave = id_estacion + "-" + nombre
-    tipo_usuario = bicicleta["User Type"]
-    if not mp.contains(estaciones,llave):
-        diccionario_estaciones = {"id_estacion":id_estacion, 
-                                "nombre":nombre,
-                                "total_viajes":0,
-                                "Casual Member":0,
-                                "Annual Member": 0}
-    else:
-        diccionario_estaciones = mp.get(estaciones,llave)
-        diccionario_estaciones = me.getValue(diccionario_estaciones)
-    diccionario_estaciones["total_viajes"] +=1
-    diccionario_estaciones[tipo_usuario]
-    mp.put(estaciones,llave, diccionario_estaciones)
-
-    return analyzer
-
-        
-#FUNCIONES REQUERIMIENTOS 
-
-#REQUERIMIENTO 1 
-def más_viajes(analyzer):
-    est = mp.valueSet(analyzer["estaciones_iniciales"])
-    lst = lt.newList("ARRAY_LIST")
-    for estacion in lt.iterator(est):
-        llave = estacion["id_estacion"] + "-" + estacion["nombre"]
-        try:
-            outdegree = gr.outdegree(analyzer["conexiones"],llave)
-        except:
-            outdegree = 0 
-        estacion["Out Degree"] = 0 
-        lt.addLast(lst,estacion)
-
-def getInfo1(analyzer):
-    return analyzer 
-
-def getInfo2(analyzer,estacion_inicial,estacion_final):
-    analyzer["paths"] = djk.Dijkstra(analyzer["conexiones"],7543.0)
-    caminos_existentes = analyzer["paths"]
-
-    lst_paradas = analyzer["lista_de_conexiones"]
-    route_index = mp.newMap(numelements = 14000,
-                            maptype="PROBING")
-    for parada in lt.iterator(lst_paradas):
-        existe_cam = hasPath(caminos_existentes,parada["stop_id"])
-        if existe_cam:
-            camino = minimunCostPath(caminos_existentes,parada["stop_id"])
-            num_estaciones = st.size(camino)
-            if num_estaciones != 0:
-                costo = djk.distTo(caminos_existentes,parada["stop_id"])
-                orden = lt.newList(datastructure="ARRAY_LIST")
-                for camino_parada in lt.iterator(camino):
-                    vertice1 = camino_parada["vertexA"]
-                    vertice2 = camino_parada["vertexB"]
-                    nombre1 = mp.get(analyzer["paradas"],vertice1)
-                    nomb1 = me.getValue(nombre1)["station_name"]
-                    nombre2 = mp.get(analyzer["paradas"],vertice2)
-                    nomb2 = me.getValue(nombre2)["station_name"]
-                    informacion_final = (vertice1,nomb1),(vertice2,nomb2)
-                    lt.addLast(orden,informacion_final)
-                entry = {
-                    "orden":orden,
-                    "tiempo": costo,
-                    "num_estaciones": num_estaciones
-                }
-                mp.put(route_index,stop["stop_id"],entry)
-    key_set = lista_llaves(route_index)
-    caminos_finales = lt.newList(datastructure="ARRAY_LIST")
-    for llave in key_set:
-        info1 = mp.get(route_index,llave)
-        info1_f = me.getValue(info1)
-        if info1_f["num_estacion"] >= minstops: 
-            
-
-
-    return analyzer
-
-def getInfo3(analyzer)
-
-
-def totalParadas(analyzer):
-    return gr.numVertices(analyzer["conexiones"])
-
-def totalConexiones(analyzer):
-    return gr.numEdges(analyzer["conexiones"])
 
 # Funciones de consulta
-def crear_nombre_estacion(estacion):
-    if estacion == " ":
-        return "desconocido"
-    else:
-        return estacion 
+def totalStations(analyzer):
+    """
+    Retorna el total de estaciones (vertices) del grafo
+    """
+    return gr.numVertices(analyzer['connections'])
 
-def connectedComponents(analyzer):
-    analyzer["components"] = scc.KosajaruSCC(analyzer["connections"])
-    return scc.connectedComponents(analyzer["components"]) 
-
-def minimumCostPaths(analyzer,initialStation):
-    analyzer["paths"] = djk.Dijkstra(analyzer["connections"],initialStation)
-    return analyzer
-
-def hasPath(analyzer,destStation):
-    return djk.hasPathTo(analyzer["paths"],destStation)
-
-def minimunCostPath(analyzer,destStation):
-    path = djk.pathTo(analyzer["paths"],destStation)
-    return path 
-
-def searchPaths(analyzer,initialStation,method):
-    if method == "dfs":
-        analyzer["search"] = dfs.DepthFirstSearch(analyzer["connections"],initialStation)
-    elif method == "bfs":
-        analyzer["search"] = bfs.BreadhtFisrtSearch(analyzer["connections"],initialStation)
-    return analyzer
-
-def hasSearchPath(analyzer,destStation,method):
-    if method == "dfs":
-        camino = dfs.hasPathTo(analyzer["search"],destStation)
-        return camino 
-    elif method == "bfs":
-        camino = bfs.hasPathTo(analyzer["search"],destStation)
-        return camino 
-
-def searchPathTo(analyzer,destStation,method):
-    if method == "dfs":
-        path = dfs.pathTo(analyzer["search"],destStation)
-    elif method == "bfs":
-        path = bfs.pathTo(analyzer["search"],destStation)
-    return path 
-
-def totalStops(analyzer):
-    return gr.numVertices(analyzer["connections"])
 
 def totalConnections(analyzer):
-    return gr.numEdges(analyzer["connections"])
+    """
+    Retorna el total arcos del grafo
+    """
+    return gr.numEdges(analyzer['connections'])
 
-def servedRoutes(analyzer):
-    lastvert = mp.keySet(analyzer["estaciones"])
-    maxvert = None 
-    maxdeg = 0 
-    for vert in lt.iterator(lastvert):
-        lstroutes = mp.get(analyzer["estaciones",vert])["value"]
-        degree = lt.size(lstroutes)
-        if (degree > maxdeg):
-            maxvert = vert
-            maxdeg = degree 
-    return maxvert, maxdeg
+def getVertices(analyzer):
+    return gr.vertices(analyzer['connections'])
+
+def connectedComponents(analyzer):
+    analyzer['components'] = scc.KosarajuSCC(analyzer['connections'])
+    return scc.connectedComponents(analyzer['components'])
 
 
 # Funciones utilizadas para comparar elementos dentro de una lista
-def comparar_id_estaciones(estacion_id,entry):
-    if type(entry) is dict: 
-        entry_estacion = me.getKey(entry)
-        if estacion_id == entry_estacion: 
-            return 0
-        elif estacion_id > entry_estacion: 
-            return 1
-        else: 
-            return -1
-
-def compareStopsIds(estacion,valor_estacion):
-    estacion_llave = valor_estacion["key"]
-    if (estacion == estacion_llave):
-        return 0 
-    elif (estacion > estacion_llave):
-        return 1 
-    else: 
+def compareStopIds(stop, keyvaluestop):
+    """
+    Compara dos estaciones
+    """
+    stopcode = keyvaluestop['key']
+    if (stop == stopcode):
+        return 0
+    elif (stop > stopcode):
+        return 1
+    else:
         return -1
 
-def comparar_fechas(fecha1,fecha2):
-    fecha_1 = datetime.strptime("%Y-%m-%d","%H-%M-%S")
-    fecha_2 = datetime.strptime("%Y-%m-%d","%H-%M-%S")
-    if fecha_1 == fecha_2:
-        return 0 
-    elif fecha_1 > fecha_2:
-        return -1 
 
-    
-def compareroutes(route1,route2):
-    if (route1 == route2):
-        return 0 
-    elif (route1 > route2):
-        return 1 
+def cmpVerticesByOutTrips(vertice1, vertice2):
+    if vertice1[2] > vertice2[2]:
+        return 1
     else: 
-        return -1 
+        return 0
+
+def cmpViajesPorFecha(viaje1, viaje2):
+    if viaje1[2] < viaje2[2]:
+        return 1
+    else:
+        return 0
+
+def cmpTripsByDuration(trip1, trip2):
+    if trip1[1] > trip2[1]:
+        return 1
+    else:
+        return 0
 
 # Funciones de ordenamiento
+
+def busqueda_lineal(lista, x, criterio)->int:
+    
+    if criterio == 'min':
+        a = 1
+    else:
+        a = lt.size(lista)
+        
+    for i in range(1,lt.size(lista),1):
+        if lt.getElement(lista,a)[2] == x:
+            return a
+        else:
+            if criterio == 'min':
+                a+=1
+            elif criterio == 'max':
+                a-=1
+    return 0
